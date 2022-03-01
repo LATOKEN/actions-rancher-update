@@ -6,15 +6,16 @@ main().catch(handleError);
 
 const sleep = (sec) => new Promise((resolve) => setTimeout(resolve, sec * 1000));
 const waitForState = async (waitFor, rancherApi, id) => {
-  let retry = 10;
+  const RETRY = parseInt(core.getInput('retry')) || 3;
+  const TIMEOUT = parseInt(core.getInput('timeout')) || 5;
   let state = '';
-  while (state !== waitFor && retry > 0) {
+  while (state !== waitFor && RETRY > 0) {
     state = (await rancherApi.get(`/services/${id}`)).state;
-    retry--;
-    await sleep(5);
+    RETRY--;
+    await sleep(TIMEOUT);
   }
 
-  if (retry === 0) {
+  if (RETRY === 0) {
     throw new Error(`Maximum retries exceeded waiting for state ${waitFor}`);
   }
 }
