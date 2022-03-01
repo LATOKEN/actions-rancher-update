@@ -25,6 +25,10 @@ inputs:
   docker_image:
     description: Name of the docker image which is used for updating
     required: true
+  retry:
+    description: Number of attempts 
+  timeout:
+    description: Deployment timeout
 output:
   result:
     description: Boolean which indicates if the action was successful or not
