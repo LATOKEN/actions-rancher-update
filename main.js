@@ -10,6 +10,7 @@ const waitForState = async (waitFor, rancherApi, id, retry, timeout) => {
   while (state !== waitFor && retry > 0) {
     state = (await rancherApi.get(`/services/${id}`)).state;
     retry--;
+    console.log('Service in state ' + state + '... waiting');
     await sleep(timeout);
   }
 
