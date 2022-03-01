@@ -5,17 +5,15 @@ process.on('unhandledRejection', handleError);
 main().catch(handleError);
 
 const sleep = (sec) => new Promise((resolve) => setTimeout(resolve, sec * 1000));
-const waitForState = async (waitFor, rancherApi, id) => {
-  const RETRY = parseInt(core.getInput('retry')) || 3;
-  const TIMEOUT = parseInt(core.getInput('timeout')) || 5;
+const waitForState = async (waitFor, rancherApi, id, retry, timeout) => {
   let state = '';
-  while (state !== waitFor && RETRY > 0) {
+  while (state !== waitFor && retry > 0) {
     state = (await rancherApi.get(`/services/${id}`)).state;
-    RETRY--;
-    await sleep(TIMEOUT);
+    retry--;
+    await sleep(timeout);
   }
 
-  if (RETRY === 0) {
+  if (retry === 0) {
     throw new Error(`Maximum retries exceeded waiting for state ${waitFor}`);
   }
 }
@@ -28,6 +26,8 @@ async function main() {
   const STACK_NAME = core.getInput('stack_name', { required: true });
   const SERVICE_NAME = core.getInput('service_name', { required: true });
   const DOCKER_IMAGE = core.getInput('docker_image', { required: true });
+  const RETRY = parseInt(core.getInput('retry')) || 3;
+  const TIMEOUT = parseInt(core.getInput('timeout')) || 5;
  
   const rancherApi = request.defaults({
     baseUrl: `${RANCHER_URL}/v2-beta/projects/${PROJECT_ID}`,
@@ -62,12 +62,12 @@ async function main() {
   };
   await rancherApi.post(`/service/${id}?action=upgrade`, { body });
   console.log('Waiting for upgrade ...');
-  await waitForState('upgraded', rancherApi, id);
+  await waitForState('upgraded', rancherApi, id, RETRY, TIMEOUT);
 
   // Finish upgrade
   await rancherApi.post(`/service/${id}?action=finishupgrade`);
   console.log('Waiting for service starting ...');
-  await waitForState('active', rancherApi, id);
+  await waitForState('active', rancherApi, id, RETRY, TIMEOUT);
 
   console.log('Service is running, upgrade successful');
   core.setOutput('result', success);
