@@ -5,10 +5,10 @@ process.on('unhandledRejection', handleError);
 main().catch(handleError);
 
 const sleep = (sec) => new Promise((resolve) => setTimeout(resolve, sec * 1000));
-const waitForState = async (waitFor, rancherApi, id, retry, timeout) => {
+const waitForState = async (waitFor, rancherApi, type, id, retry, timeout) => {
   let state = '';
   while (state !== waitFor && retry > 0) {
-    state = (await rancherApi.get(`/services/${id}`)).state;
+    state = (await rancherApi.get(`/${type}/${id}`)).state;
     retry--;
     console.log('Service in state ' + state + '... waiting');
     await sleep(timeout);
@@ -27,6 +27,7 @@ async function main() {
   const STACK_NAME = core.getInput('stack_name', { required: true });
   const SERVICE_NAME = core.getInput('service_name', { required: true });
   const DOCKER_IMAGE = core.getInput('docker_image', { required: true });
+  const PULL = core.getInput('pull').toLowerCase() === 'true';
   const RETRY = parseInt(core.getInput('retry')) || 3;
   const TIMEOUT = parseInt(core.getInput('timeout')) || 5;
  
@@ -52,6 +53,18 @@ async function main() {
   if (!service || !service.data[0]) {
     throw new Error('Could not find service name. Check the service_name input. Deploy failed!');
   }
+
+  if (PULL) {
+      const body = {
+          image: DOCKER_IMAGE,
+          mode: "all"
+      }
+      console.log('Start pull image ...');
+      pull = await rancherApi.post(`/pulltasks`, { body });
+      console.log('Waiting for pull image ...');
+      await waitForState('active', rancherApi, 'pulltasks', pull.id, RETRY, TIMEOUT);
+  }
+
   const { id, launchConfig } = service.data[0];
   launchConfig.imageUuid = `docker:${DOCKER_IMAGE}`;
 
@@ -63,12 +76,12 @@ async function main() {
   };
   await rancherApi.post(`/service/${id}?action=upgrade`, { body });
   console.log('Waiting for upgrade ...');
-  await waitForState('upgraded', rancherApi, id, RETRY, TIMEOUT);
+  await waitForState('upgraded', rancherApi, 'services', id, RETRY, TIMEOUT);
 
   // Finish upgrade
   await rancherApi.post(`/service/${id}?action=finishupgrade`);
   console.log('Waiting for service starting ...');
-  await waitForState('active', rancherApi, id, RETRY, TIMEOUT);
+  await waitForState('active', rancherApi, 'services', id, RETRY, TIMEOUT);
 
   console.log('Service is running, upgrade successful');
   core.setOutput('result', success);

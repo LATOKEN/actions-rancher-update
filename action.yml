@@ -25,6 +25,8 @@ inputs:
   docker_image:
     description: Name of the docker image which is used for updating
     required: true
+  pull:
+    description: Force image pull before upgrade
   retry:
     description: Number of attempts
   timeout:
